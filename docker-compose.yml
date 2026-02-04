@@ -1,0 +1,76 @@
+# VLGM Local Inference Service - Docker Compose Configuration
+#
+# Usage:
+#   docker compose up
+#
+# Requirements:
+#   - NVIDIA Docker runtime installed
+#   - NVIDIA drivers >= 525.60.13
+
+services:
+  # ==========================================================================
+  # GPU-enabled service (requires NVIDIA GPU)
+  # ==========================================================================
+  vlgm-gpu:
+    build:
+      context: .
+      target: runtime-cuda
+    image: vlgm-inference:cuda
+    container_name: vlgm-inference-gpu
+    ports:
+      - "8000:8000"
+    environment:
+      - VLGM_HOST=0.0.0.0
+      - VLGM_PORT=8000
+      - VLGM_DEVICE=auto
+      - VLGM_TORCH_DTYPE=float16
+      - VLGM_QALIGN_ENABLED=true
+      - VLGM_TURBODIFFUSION_ENABLED=true
+      - VLGM_MODEL_CACHE_DIR=/app/model_cache
+      - VLGM_OUTPUT_DIR=/app/outputs
+      - VLGM_TURBODIFFUSION_CHECKPOINT_DIR=/app/checkpoints
+      # HuggingFace cache directory
+      - HF_HOME=/app/model_cache
+      - TRANSFORMERS_CACHE=/app/model_cache
+      # CUDA settings
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      # Model checkpoints (for TurboDiffusion)
+      - ./checkpoints:/app/checkpoints:ro
+      # Generated outputs
+      - ./outputs:/app/outputs
+      # Model cache (HuggingFace models)
+      - ./model_cache:/app/model_cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+# ==========================================================================
+# Volume definitions (optional, for persistent storage)
+# ==========================================================================
+volumes:
+  model_cache:
+    driver: local
+  outputs:
+    driver: local
+  checkpoints:
+    driver: local
+
+# ==========================================================================
+# Network configuration
+# ==========================================================================
+networks:
+  default:
+    name: vlgm-network
+    driver: bridge

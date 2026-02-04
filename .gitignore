@@ -1,3 +1,28 @@
+# =============================================================================
+# VLGM Local Inference - Project Specific
+# =============================================================================
+# Model checkpoints (large files)
+checkpoints/
+*.pth
+*.safetensors
+*.bin
+
+# Generated outputs
+outputs/
+*.mp4
+*.avi
+*.webm
+
+# Model cache
+model_cache/
+.cache/
+
+# Environment file (contains secrets)
+.env
+
+# =============================================================================
+# Python
+# =============================================================================
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
