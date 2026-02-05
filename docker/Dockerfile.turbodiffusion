@@ -23,29 +23,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libxext6 \
         libxrender-dev \
         software-properties-common \
-    && add-ppa-repository ppa:deadsnakes/ppa \
+    && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y --no-install-recommends \
         python3.12 \
         python3.12-dev \
+    && ln -sf /usr/bin/python3.12 /usr/bin/python3 \
     && ln -sf /usr/bin/python3.12 /usr/bin/python \
-    && python3.12 -m ensurepip --upgrade \
-    && pip install --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# Install uv (no pip / ensurepip needed)
+# ---------------------------------------------------------------------------
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+ENV UV_LINK_MODE=copy
 
 WORKDIR /app
 
 # ---------------------------------------------------------------------------
-# Python dependencies
+# Python dependencies (resolved from pyproject.toml via uv)
 # ---------------------------------------------------------------------------
-ENV VIRTUAL_ENV=/app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
-ENV UV_INDEX_URL=https://pypi.org/simple
-ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu128
-
 COPY pyproject_turbodiffusion.toml ./pyproject.toml
 
-RUN uv sync --no-dev
+RUN uv sync --system --no-install
 
 # ---------------------------------------------------------------------------
 # Copy source — shared framework + TurboDiffusion model only.
@@ -68,12 +68,12 @@ COPY src/models/TurboDiffusion/       ./src/models/TurboDiffusion/
 # Compile third-party CUDA extensions (order matters: SpargeAttn first)
 # ---------------------------------------------------------------------------
 # SpargeAttn — required by sagesla attention path
-RUN pip install --no-cache-dir \
-        git+https://github.com/thu-ml/SpargeAttn.git --no-build-isolation
+RUN uv pip install --system --no-build-isolation \
+        git+https://github.com/thu-ml/SpargeAttn.git
 
 # TurboDiffusion custom ops (quant / norm / gemm kernels + CUTLASS)
 RUN cd /app/src/models/TurboDiffusion \
-    && pip install -e . --no-build-isolation
+    && uv pip install --system -e . --no-build-isolation
 
 # ---------------------------------------------------------------------------
 # Runtime configuration

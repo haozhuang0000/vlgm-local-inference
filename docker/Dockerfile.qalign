@@ -22,7 +22,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.11-dev \
         python3-pip \
     && ln -sf /usr/bin/python3.11 /usr/bin/python \
-    && python3.11 -m ensurepip --upgrade \
     && pip install --upgrade pip setuptools \
     && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
