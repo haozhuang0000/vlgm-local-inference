@@ -94,8 +94,8 @@
 # if __name__ == "__main__":
 #     main()
 
-from q_align import QAlignVideoScorer, load_video
+from demo.q_align import QAlignVideoScorer, load_video
 
 scorer = QAlignVideoScorer()
-video_list = [load_video("m2-res_1080p.mp4")]
+video_list = [load_video("video_v1ob3trg7uza.mp4")]
 print(scorer(video_list).tolist())
