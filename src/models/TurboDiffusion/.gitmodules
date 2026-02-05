@@ -1,3 +1,0 @@
-[submodule "turbodiffusion/ops/cutlass"]
-	path = turbodiffusion/ops/cutlass
-	url = https://github.com/NVIDIA/cutlass

@@ -17,14 +17,19 @@ from .base import VlgmBase
 from ..schema import TurboDiffusionInput, TurboDiffusionOutput, ModelStatus
 
 # ---------------------------------------------------------------------------
-# Make the turbodiffusion submodule importable (mirrors PYTHONPATH=turbodiffusion)
+# Make the TurboDiffusion package importable.
+# In Docker the repo is cloned to TURBODIFFUSION_REPO_DIR (/app/TurboDiffusion).
 # ---------------------------------------------------------------------------
-_TURBODIFFUSION_PKG = str(Path(__file__).parent / "TurboDiffusion" / "turbodiffusion")
+_TD_REPO_DIR = os.environ.get(
+    "TURBODIFFUSION_REPO_DIR",
+    str(Path(__file__).parent / "TurboDiffusion"),   # local-dev fallback
+)
+_TURBODIFFUSION_PKG = str(Path(_TD_REPO_DIR) / "turbodiffusion")
 if _TURBODIFFUSION_PKG not in sys.path:
     sys.path.insert(0, _TURBODIFFUSION_PKG)
 
 # inference/ dir is needed so that "from modify_model import ..." resolves
-_INFERENCE_DIR = str(Path(__file__).parent / "TurboDiffusion" / "turbodiffusion" / "inference")
+_INFERENCE_DIR = str(Path(_TD_REPO_DIR) / "turbodiffusion" / "inference")
 if _INFERENCE_DIR not in sys.path:
     sys.path.insert(0, _INFERENCE_DIR)
 

@@ -37,7 +37,7 @@ ENV UV_INDEX_URL=https://pypi.org/simple
 ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu118
 
 COPY pyproject_qalign.toml ./pyproject.toml
-COPY uv.lock ./uv.lock
+COPY uv_qalign.lock ./uv.lock
 
 RUN uv sync --no-dev --frozen
 
