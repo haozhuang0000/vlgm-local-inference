@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _qalign_available = False
 _turbodiffusion_available = False
+_fastvideo_available = False
 
 try:
     from .routes.qalign import router as qalign_router, set_model as set_qalign_model
@@ -37,6 +38,13 @@ try:
     from .routes.turbodiffusion import router as turbodiffusion_router, set_model as set_turbodiffusion_model
     from ..models.turbodiffusion import TurboDiffusionModel
     _turbodiffusion_available = True
+except ImportError:
+    pass
+
+try:
+    from .routes.fastvideo import router as fastvideo_router, set_model as set_fastvideo_model
+    from ..models.fastvideo import FastVideoModel
+    _fastvideo_available = True
 except ImportError:
     pass
 
@@ -86,6 +94,19 @@ async def lifespan(app: FastAPI):
         else:
             logger.warning("TurboDiffusion enabled but dependencies are not installed — skipping")
 
+    if settings.fastvideo_enabled:
+        if _fastvideo_available:
+            fastvideo_model = FastVideoModel(
+                model_id=settings.fastvideo_model_id,
+                device=settings.device,
+                dtype=settings.torch_dtype,
+                output_dir=settings.output_dir,
+            )
+            set_fastvideo_model(fastvideo_model)
+            logger.info("FastVideo model initialized (will load on first request)")
+        else:
+            logger.warning("FastVideo enabled but dependencies are not installed — skipping")
+
     logger.info("VLGM Inference Service ready")
 
     yield
@@ -131,6 +152,8 @@ Models are loaded automatically on first request.
         app.include_router(qalign_router)
     if settings.turbodiffusion_enabled and _turbodiffusion_available:
         app.include_router(turbodiffusion_router)
+    if settings.fastvideo_enabled and _fastvideo_available:
+        app.include_router(fastvideo_router)
 
     @app.get("/health", tags=["Health"])
     async def health():
@@ -145,6 +168,8 @@ Models are loaded automatically on first request.
             endpoints["qalign"] = "/qalign/evaluate"
         if settings.turbodiffusion_enabled and _turbodiffusion_available:
             endpoints["turbodiffusion"] = "/turbodiffusion/generate"
+        if settings.fastvideo_enabled and _fastvideo_available:
+            endpoints["fastvideo"] = "/fastvideo/generate"
         return {
             "service": "VLGM Local Inference Service",
             "version": __version__,

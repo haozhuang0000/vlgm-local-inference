@@ -1,0 +1,55 @@
+# =============================================================================
+# FastVideo container — accelerated video generation
+#
+# Usage:
+#   docker compose -f docker/docker-compose.fastvideo.yml up -d
+#
+# The model weights are downloaded automatically from HuggingFace on the first
+# request and cached in ./model_cache/.
+# =============================================================================
+services:
+  fastvideo:
+    build:
+      context: ..                         # repo root (where src/ lives)
+      dockerfile: docker/Dockerfile.fastvideo
+    image: vlgm-fastvideo:latest
+    container_name: vlgm-fastvideo
+
+    ports:
+      - "8002:8000"
+
+    environment:
+      - VLGM_HOST=0.0.0.0
+      - VLGM_PORT=8000
+      - VLGM_DEVICE=auto
+      - VLGM_QALIGN_ENABLED=false
+      - VLGM_TURBODIFFUSION_ENABLED=false
+      - VLGM_FASTVIDEO_ENABLED=true
+      - VLGM_FASTVIDEO_MODEL_ID=FastVideo/FastWan2.1-T2V-1.3B-Diffusers
+      - HF_HOME=/app/model_cache
+      - TRANSFORMERS_CACHE=/app/model_cache
+      - FASTVIDEO_ATTENTION_BACKEND=flash-attn2
+      - CUDA_VISIBLE_DEVICES=0
+
+    volumes:
+      # HuggingFace model cache (persists downloaded weights across restarts)
+      - ./model_cache:/app/model_cache
+      # Generated video outputs
+      - ./outputs:/app/outputs
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s

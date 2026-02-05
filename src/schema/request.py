@@ -181,3 +181,101 @@ class TurboDiffusionResponse(BaseModel):
             ]
         }
     }
+
+
+# ============================================================================
+# FastVideo Schemas
+# ============================================================================
+
+
+class FastVideoRequest(BaseModel):
+    """
+    Request for FastVideo video generation.
+
+    FastVideo provides accelerated video generation using distilled models.
+    """
+
+    prompt: str = Field(
+        min_length=1,
+        max_length=500,
+        description="Text description of the video to generate",
+    )
+    num_frames: int = Field(
+        default=49,
+        ge=1,
+        le=200,
+        description="Number of frames to generate",
+    )
+    height: int = Field(
+        default=480,
+        ge=256,
+        le=1080,
+        description="Output video height",
+    )
+    width: int = Field(
+        default=832,
+        ge=256,
+        le=1920,
+        description="Output video width",
+    )
+    num_inference_steps: int = Field(
+        default=8,
+        ge=1,
+        le=50,
+        description="Number of diffusion steps (8 recommended for distilled models)",
+    )
+    guidance_scale: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=20.0,
+        description="Classifier-free guidance scale",
+    )
+    seed: int | None = Field(
+        default=None,
+        ge=0,
+        description="Random seed for reproducibility",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "prompt": "A serene lake surrounded by mountains at sunset",
+                    "num_frames": 49,
+                    "height": 480,
+                    "width": 832,
+                    "num_inference_steps": 8,
+                    "guidance_scale": 1.0,
+                }
+            ]
+        }
+    }
+
+
+class FastVideoResponse(BaseModel):
+    """Response from FastVideo video generation."""
+
+    video_url: str = Field(description="URL to download the generated video")
+    video_path: str = Field(description="Server path to the generated video")
+    video_base64: str = Field(description="Base64-encoded MP4 video data")
+    metadata: dict = Field(description="Generation metadata")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "video_url": "/outputs/fastvideo_abc12345.mp4",
+                    "video_path": "./outputs/fastvideo_abc12345.mp4",
+                    "video_base64": "<base64-encoded MP4>",
+                    "metadata": {
+                        "prompt": "A serene lake surrounded by mountains",
+                        "num_frames": 49,
+                        "width": 832,
+                        "height": 480,
+                        "num_inference_steps": 8,
+                        "seed": 42,
+                    },
+                }
+            ]
+        }
+    }

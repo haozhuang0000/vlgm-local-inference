@@ -1,0 +1,81 @@
+# =============================================================================
+# FastVideo Inference Service
+# Python 3.11 | PyTorch 2.x | CUDA 12.1
+# =============================================================================
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# ---------------------------------------------------------------------------
+# System dependencies
+# ---------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc \
+        g++ \
+        curl \
+        ffmpeg \
+        git \
+        libgl1-mesa-glx \
+        libglib2.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender-dev \
+        python3.11 \
+        python3.11-dev \
+        python3-pip \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python \
+    && pip install --upgrade pip setuptools \
+    && pip install --no-cache-dir uv \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# ---------------------------------------------------------------------------
+# Python dependencies (using uv)
+# ---------------------------------------------------------------------------
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Create venv and install dependencies
+RUN uv venv /app/.venv \
+    && uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121 \
+    && uv pip install fastapi uvicorn pydantic pydantic-settings httpx \
+    && uv pip install fastvideo
+
+# ---------------------------------------------------------------------------
+# Copy source — shared framework + FastVideo model only
+# ---------------------------------------------------------------------------
+COPY src/__init__.py              ./src/__init__.py
+COPY src/config.py                ./src/config.py
+COPY src/schema/                  ./src/schema/
+COPY src/api/__init__.py          ./src/api/__init__.py
+COPY src/api/app.py               ./src/api/app.py
+COPY src/api/routes/__init__.py   ./src/api/routes/__init__.py
+COPY src/api/routes/fastvideo.py  ./src/api/routes/fastvideo.py
+COPY src/models/__init__.py       ./src/models/__init__.py
+COPY src/models/base.py           ./src/models/base.py
+COPY src/models/fastvideo.py      ./src/models/fastvideo.py
+
+# ---------------------------------------------------------------------------
+# Runtime configuration
+# ---------------------------------------------------------------------------
+ENV PYTHONPATH=/app
+ENV VLGM_HOST=0.0.0.0
+ENV VLGM_PORT=8000
+ENV VLGM_DEVICE=auto
+ENV VLGM_QALIGN_ENABLED=false
+ENV VLGM_TURBODIFFUSION_ENABLED=false
+ENV VLGM_FASTVIDEO_ENABLED=true
+ENV HF_HOME=/app/model_cache
+ENV TRANSFORMERS_CACHE=/app/model_cache
+ENV FASTVIDEO_ATTENTION_BACKEND=flash-attn2
+
+RUN mkdir -p /app/model_cache /app/outputs
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+EXPOSE 8000
+
+CMD ["python", "-c", "from src.api.app import main; main()"]

@@ -1,7 +1,14 @@
 """Model implementations for local inference."""
 
 from .base import VlgmBase, ModelInfo, ModelStatus
-from ..schema import QAlignInput, QAlignOutput, TurboDiffusionInput, TurboDiffusionOutput
+from ..schema import (
+    QAlignInput,
+    QAlignOutput,
+    TurboDiffusionInput,
+    TurboDiffusionOutput,
+    FastVideoInput,
+    FastVideoOutput,
+)
 
 __all__ = [
     "VlgmBase",
@@ -11,6 +18,8 @@ __all__ = [
     "QAlignOutput",
     "TurboDiffusionInput",
     "TurboDiffusionOutput",
+    "FastVideoInput",
+    "FastVideoOutput",
 ]
 
 # Each model's transitive deps may not be installed in every container;
@@ -24,5 +33,11 @@ except ImportError:
 try:
     from .turbodiffusion import TurboDiffusionModel
     __all__.append("TurboDiffusionModel")
+except ImportError:
+    pass
+
+try:
+    from .fastvideo import FastVideoModel
+    __all__.append("FastVideoModel")
 except ImportError:
     pass

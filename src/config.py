@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     turbodiffusion_low_noise_model_path: str = ""
     turbodiffusion_boundary: float = 0.9
 
+    # FastVideo Settings
+    fastvideo_enabled: bool = True
+    fastvideo_model_id: str = "FastVideo/FastWan2.1-T2V-1.3B-Diffusers"
+
     # Cache Settings
     model_cache_dir: str = "./model_cache"
     output_dir: str = "./outputs"
