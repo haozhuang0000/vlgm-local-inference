@@ -43,7 +43,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV UV_INDEX_URL=https://pypi.org/simple
 ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu128
 
-COPY pyproject_turbodiffusion.toml ./pyproject.toml
+COPY ../pyproject_turbodiffusion.toml ./pyproject.toml
 
 RUN uv sync --no-dev
 
@@ -52,17 +52,17 @@ RUN uv sync --no-dev
 # The TurboDiffusion/ submodule (with its own sub-submodules) must already be
 # checked out on the host (git submodule update --init --recursive).
 # ---------------------------------------------------------------------------
-COPY src/__init__.py                  ./src/__init__.py
-COPY src/config.py                    ./src/config.py
-COPY src/schema/                      ./src/schema/
-COPY src/api/__init__.py              ./src/api/__init__.py
-COPY src/api/app.py                   ./src/api/app.py
-COPY src/api/routes/__init__.py       ./src/api/routes/__init__.py
-COPY src/api/routes/turbodiffusion.py ./src/api/routes/turbodiffusion.py
-COPY src/models/__init__.py           ./src/models/__init__.py
-COPY src/models/base.py               ./src/models/base.py
-COPY src/models/turbodiffusion.py     ./src/models/turbodiffusion.py
-COPY src/models/TurboDiffusion/       ./src/models/TurboDiffusion/
+COPY ../src/__init__.py                  ./src/__init__.py
+COPY ../src/config.py                    ./src/config.py
+COPY ../src/schema/                      ./src/schema/
+COPY ../src/api/__init__.py              ./src/api/__init__.py
+COPY ../src/api/app.py                   ./src/api/app.py
+COPY ../src/api/routes/__init__.py       ./src/api/routes/__init__.py
+COPY ../src/api/routes/turbodiffusion.py ./src/api/routes/turbodiffusion.py
+COPY ../src/models/__init__.py           ./src/models/__init__.py
+COPY ../src/models/base.py               ./src/models/base.py
+COPY ../src/models/turbodiffusion.py     ./src/models/turbodiffusion.py
+COPY ../src/models/TurboDiffusion/       ./src/models/TurboDiffusion/
 
 # ---------------------------------------------------------------------------
 # Compile third-party CUDA extensions (order matters: SpargeAttn first)
