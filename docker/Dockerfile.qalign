@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -sf /usr/bin/python3.11 /usr/bin/python \
     && python3.11 -m ensurepip --upgrade \
     && pip install --upgrade pip setuptools \
+    && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -31,39 +32,15 @@ WORKDIR /app
 # ---------------------------------------------------------------------------
 # Python dependencies
 # ---------------------------------------------------------------------------
-# PyTorch 2.0.1 + CUDA 11.8 (pinned per pyproject_qalign.toml)
-RUN pip install --no-cache-dir \
-        torch==2.0.1 torchvision==0.15.2 \
-        --index-url https://download.pytorch.org/whl/cu118
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+ENV UV_INDEX_URL=https://pypi.org/simple
+ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu118
 
-# Application dependencies (from pyproject_qalign.toml, excl. torch/torchvision)
-RUN pip install --no-cache-dir \
-        transformers==4.36.1 \
-        tokenizers==0.15.0 \
-        sentencepiece==0.1.99 \
-        shortuuid \
-        accelerate==0.21.0 \
-        peft==0.4.0 \
-        bitsandbytes==0.41.0 \
-        "pydantic>=2.0" \
-        "markdown2[all]" \
-        numpy==1.26.4 \
-        scikit-learn==1.2.2 \
-        requests \
-        httpx \
-        uvicorn \
-        fastapi \
-        icecream \
-        einops==0.6.1 \
-        einops-exts==0.0.4 \
-        timm==0.6.13 \
-        decord \
-        scipy \
-        pydantic-settings \
-        huggingface-hub \
-        aiofiles \
-        opencv-python-headless \
-        pillow
+COPY pyproject_qalign.toml ./pyproject.toml
+COPY uv.lock ./uv.lock
+
+RUN uv sync --no-dev --frozen
 
 # ---------------------------------------------------------------------------
 # Copy source — shared framework + Q-Align model only

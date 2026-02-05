@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -sf /usr/bin/python3.12 /usr/bin/python \
     && python3.12 -m ensurepip --upgrade \
     && pip install --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir uv \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -37,27 +38,14 @@ WORKDIR /app
 # ---------------------------------------------------------------------------
 # Python dependencies
 # ---------------------------------------------------------------------------
-# PyTorch 2.8.0 + CUDA 12.8
-# If cu128 wheels are not yet available for your torch version, fall back to:
-#   --index-url https://download.pytorch.org/whl/cu124
-RUN pip install --no-cache-dir \
-        torch==2.8.0 torchvision \
-        --index-url https://download.pytorch.org/whl/cu128
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+ENV UV_INDEX_URL=https://pypi.org/simple
+ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu128
 
-# Common application + inference dependencies
-RUN pip install --no-cache-dir \
-        einops \
-        numpy \
-        pillow \
-        scipy \
-        opencv-python-headless \
-        fastapi \
-        uvicorn \
-        httpx \
-        aiofiles \
-        "pydantic>=2.0" \
-        pydantic-settings \
-        huggingface-hub
+COPY pyproject_turbodiffusion.toml ./pyproject.toml
+
+RUN uv sync --no-dev
 
 # ---------------------------------------------------------------------------
 # Copy source — shared framework + TurboDiffusion model only.
