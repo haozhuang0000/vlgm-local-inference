@@ -134,10 +134,12 @@ async def generate_video(
 
         video_filename = Path(result.video_path).name
         video_url = f"/outputs/{video_filename}"
+        video_base64 = base64.b64encode(Path(result.video_path).read_bytes()).decode("ascii")
 
         return TurboDiffusionResponse(
             video_url=video_url,
             video_path=result.video_path,
+            video_base64=video_base64,
             metadata=result.metadata,
         )
     except Exception as e:

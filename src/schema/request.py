@@ -160,6 +160,7 @@ class TurboDiffusionResponse(BaseModel):
 
     video_url: str = Field(description="URL to download the generated video")
     video_path: str = Field(description="Server path to the generated video")
+    video_base64: str = Field(description="Base64-encoded MP4 video data")
     metadata: dict = Field(description="Generation metadata")
 
     model_config = {
@@ -168,6 +169,7 @@ class TurboDiffusionResponse(BaseModel):
                 {
                     "video_url": "/outputs/video_abc12345.mp4",
                     "video_path": "./outputs/video_abc12345.mp4",
+                    "video_base64": "<base64-encoded MP4>",
                     "metadata": {
                         "prompt": "A cat walking through a garden",
                         "num_steps": 4,
