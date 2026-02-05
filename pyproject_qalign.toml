@@ -25,7 +25,8 @@ dependencies = [
     "aiofiles",
     "httpx",
     "opencv-python",
-    "pillow"
+    "pillow",
+    "protobuf"
 ]
 #[project]
 #name = "vlgm-local-inference"
