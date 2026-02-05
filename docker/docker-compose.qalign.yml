@@ -1,0 +1,52 @@
+# =============================================================================
+# Q-Align container — video quality assessment
+#
+# Usage:
+#   docker compose -f docker/docker-compose.qalign.yml up -d
+#
+# The model weights (q-future/one-align) are downloaded automatically from
+# HuggingFace on the first request and cached in ./model_cache/.
+# =============================================================================
+services:
+  qalign:
+    build:
+      context: .                          # repo root (where src/ lives)
+      dockerfile: docker/Dockerfile.qalign
+    image: vlgm-qalign:latest
+    container_name: vlgm-qalign
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      - VLGM_HOST=0.0.0.0
+      - VLGM_PORT=8000
+      - VLGM_DEVICE=auto
+      - VLGM_QALIGN_ENABLED=true
+      - VLGM_TURBODIFFUSION_ENABLED=false
+      - HF_HOME=/app/model_cache
+      - TRANSFORMERS_CACHE=/app/model_cache
+      - CUDA_VISIBLE_DEVICES=0
+
+    volumes:
+      # HuggingFace model cache (persists downloaded weights across restarts)
+      - ./model_cache:/app/model_cache
+      # Shared output directory (not used by Q-Align, kept for consistency)
+      - ./outputs:/app/outputs
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s

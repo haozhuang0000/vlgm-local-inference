@@ -1,0 +1,107 @@
+# =============================================================================
+# TurboDiffusion Inference Service
+# Python 3.12 | PyTorch 2.8.0 | CUDA 12.8  (targets sm_80 … sm_120a)
+#
+# Prerequisites — run on the HOST before docker build:
+#   git submodule update --init --recursive
+# =============================================================================
+FROM nvidia/cuda:12.8.0-cudnn9-devel-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# ---------------------------------------------------------------------------
+# System dependencies  (build-essential required for CUDA extension compilation)
+# ---------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        ffmpeg \
+        git \
+        libgl1-mesa-glx \
+        libglib2.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender-dev \
+        software-properties-common \
+    && add-ppa-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3.12 \
+        python3.12-dev \
+    && ln -sf /usr/bin/python3.12 /usr/bin/python \
+    && python3.12 -m ensurepip --upgrade \
+    && pip install --upgrade pip setuptools wheel \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# ---------------------------------------------------------------------------
+# Python dependencies
+# ---------------------------------------------------------------------------
+# PyTorch 2.8.0 + CUDA 12.8
+# If cu128 wheels are not yet available for your torch version, fall back to:
+#   --index-url https://download.pytorch.org/whl/cu124
+RUN pip install --no-cache-dir \
+        torch==2.8.0 torchvision \
+        --index-url https://download.pytorch.org/whl/cu128
+
+# Common application + inference dependencies
+RUN pip install --no-cache-dir \
+        einops \
+        numpy \
+        pillow \
+        scipy \
+        opencv-python-headless \
+        fastapi \
+        uvicorn \
+        httpx \
+        aiofiles \
+        "pydantic>=2.0" \
+        pydantic-settings \
+        huggingface-hub
+
+# ---------------------------------------------------------------------------
+# Copy source — shared framework + TurboDiffusion model only.
+# The TurboDiffusion/ submodule (with its own sub-submodules) must already be
+# checked out on the host (git submodule update --init --recursive).
+# ---------------------------------------------------------------------------
+COPY src/__init__.py                  ./src/__init__.py
+COPY src/config.py                    ./src/config.py
+COPY src/schema/                      ./src/schema/
+COPY src/api/__init__.py              ./src/api/__init__.py
+COPY src/api/app.py                   ./src/api/app.py
+COPY src/api/routes/__init__.py       ./src/api/routes/__init__.py
+COPY src/api/routes/turbodiffusion.py ./src/api/routes/turbodiffusion.py
+COPY src/models/__init__.py           ./src/models/__init__.py
+COPY src/models/base.py               ./src/models/base.py
+COPY src/models/turbodiffusion.py     ./src/models/turbodiffusion.py
+COPY src/models/TurboDiffusion/       ./src/models/TurboDiffusion/
+
+# ---------------------------------------------------------------------------
+# Compile third-party CUDA extensions (order matters: SpargeAttn first)
+# ---------------------------------------------------------------------------
+# SpargeAttn — required by sagesla attention path
+RUN pip install --no-cache-dir \
+        git+https://github.com/thu-ml/SpargeAttn.git --no-build-isolation
+
+# TurboDiffusion custom ops (quant / norm / gemm kernels + CUTLASS)
+RUN cd /app/src/models/TurboDiffusion \
+    && pip install -e . --no-build-isolation
+
+# ---------------------------------------------------------------------------
+# Runtime configuration
+# ---------------------------------------------------------------------------
+ENV PYTHONPATH=/app
+ENV VLGM_HOST=0.0.0.0
+ENV VLGM_PORT=8000
+ENV VLGM_DEVICE=cuda
+ENV VLGM_QALIGN_ENABLED=false
+ENV VLGM_TURBODIFFUSION_ENABLED=true
+
+RUN mkdir -p /app/checkpoints /app/outputs
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+EXPOSE 8000
+
+CMD ["python", "-c", "from src.api.app import main; main()"]

@@ -1,0 +1,103 @@
+# =============================================================================
+# Q-Align Inference Service
+# Python 3.11 | PyTorch 2.0.1 | CUDA 11.8
+# =============================================================================
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# ---------------------------------------------------------------------------
+# System dependencies
+# ---------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        ffmpeg \
+        git \
+        libgl1-mesa-glx \
+        libglib2.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender-dev \
+        python3.11 \
+        python3.11-dev \
+        python3-pip \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python \
+    && python3.11 -m ensurepip --upgrade \
+    && pip install --upgrade pip setuptools \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# ---------------------------------------------------------------------------
+# Python dependencies
+# ---------------------------------------------------------------------------
+# PyTorch 2.0.1 + CUDA 11.8 (pinned per pyproject_qalign.toml)
+RUN pip install --no-cache-dir \
+        torch==2.0.1 torchvision==0.15.2 \
+        --index-url https://download.pytorch.org/whl/cu118
+
+# Application dependencies (from pyproject_qalign.toml, excl. torch/torchvision)
+RUN pip install --no-cache-dir \
+        transformers==4.36.1 \
+        tokenizers==0.15.0 \
+        sentencepiece==0.1.99 \
+        shortuuid \
+        accelerate==0.21.0 \
+        peft==0.4.0 \
+        bitsandbytes==0.41.0 \
+        "pydantic>=2.0" \
+        "markdown2[all]" \
+        numpy==1.26.4 \
+        scikit-learn==1.2.2 \
+        requests \
+        httpx \
+        uvicorn \
+        fastapi \
+        icecream \
+        einops==0.6.1 \
+        einops-exts==0.0.4 \
+        timm==0.6.13 \
+        decord \
+        scipy \
+        pydantic-settings \
+        huggingface-hub \
+        aiofiles \
+        opencv-python-headless \
+        pillow
+
+# ---------------------------------------------------------------------------
+# Copy source — shared framework + Q-Align model only
+# ---------------------------------------------------------------------------
+COPY src/__init__.py              ./src/__init__.py
+COPY src/config.py                ./src/config.py
+COPY src/schema/                  ./src/schema/
+COPY src/api/__init__.py          ./src/api/__init__.py
+COPY src/api/app.py               ./src/api/app.py
+COPY src/api/routes/__init__.py   ./src/api/routes/__init__.py
+COPY src/api/routes/qalign.py     ./src/api/routes/qalign.py
+COPY src/models/__init__.py       ./src/models/__init__.py
+COPY src/models/base.py           ./src/models/base.py
+COPY src/models/qalign.py         ./src/models/qalign.py
+COPY src/models/Q-Align/          ./src/models/Q-Align/
+
+# ---------------------------------------------------------------------------
+# Runtime configuration
+# ---------------------------------------------------------------------------
+ENV PYTHONPATH=/app
+ENV VLGM_HOST=0.0.0.0
+ENV VLGM_PORT=8000
+ENV VLGM_DEVICE=auto
+ENV VLGM_QALIGN_ENABLED=true
+ENV VLGM_TURBODIFFUSION_ENABLED=false
+ENV HF_HOME=/app/model_cache
+ENV TRANSFORMERS_CACHE=/app/model_cache
+
+RUN mkdir -p /app/model_cache /app/outputs
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+EXPOSE 8000
+
+# main() reads VLGM_HOST / VLGM_PORT from env via pydantic-settings
+CMD ["python", "-c", "from src.api.app import main; main()"]

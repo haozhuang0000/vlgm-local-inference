@@ -1,0 +1,58 @@
+# =============================================================================
+# TurboDiffusion container — fast video generation
+#
+# Prerequisites (run once on the host):
+#   1. git submodule update --init --recursive
+#   2. bash docker/download_checkpoints.sh          # downloads ~6 GB
+#
+# Usage:
+#   docker compose -f docker/docker-compose.turbodiffusion.yml up -d
+# =============================================================================
+services:
+  turbodiffusion:
+    build:
+      context: .                                    # repo root (where src/ lives)
+      dockerfile: docker/Dockerfile.turbodiffusion
+    image: vlgm-turbodiffusion:latest
+    container_name: vlgm-turbodiffusion
+
+    # Host port 8001 → container port 8000 so it can coexist with Q-Align on 8000
+    ports:
+      - "8001:8000"
+
+    environment:
+      - VLGM_HOST=0.0.0.0
+      - VLGM_PORT=8000
+      - VLGM_DEVICE=cuda
+      - VLGM_QALIGN_ENABLED=false
+      - VLGM_TURBODIFFUSION_ENABLED=true
+      - VLGM_OUTPUT_DIR=/app/outputs
+      # Checkpoint paths (must match files produced by download_checkpoints.sh)
+      - VLGM_TURBODIFFUSION_MODEL=Wan2.1-1.3B
+      - VLGM_TURBODIFFUSION_DIT_PATH=/app/checkpoints/TurboWan2.1-T2V-1.3B-480P-quant.pth
+      - VLGM_TURBODIFFUSION_VAE_PATH=/app/checkpoints/Wan2.1_VAE.pth
+      - VLGM_TURBODIFFUSION_TEXT_ENCODER_PATH=/app/checkpoints/models_t5_umt5-xxl-enc-bf16.pth
+      - CUDA_VISIBLE_DEVICES=0
+
+    volumes:
+      # Model checkpoints (read-only; populated by download_checkpoints.sh)
+      - ./checkpoints:/app/checkpoints:ro
+      # Generated videos
+      - ./outputs:/app/outputs
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
