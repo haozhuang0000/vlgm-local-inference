@@ -1,9 +1,9 @@
 # =============================================================================
 # TurboDiffusion Inference Service
-# Python 3.12 | PyTorch 2.8.0 | CUDA 12.8  (targets sm_80 … sm_120a)
+# Python 3.12 | PyTorch 2.8.0 | CUDA 12.8
 #
-# Prerequisites — run on the HOST before docker build:
-#   git submodule update --init --recursive
+# Build args:
+#   TD_BRANCH  – TurboDiffusion git branch / tag (default: main)
 # =============================================================================
 FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04
 
@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# Install uv (no pip / ensurepip needed)
+# uv + venv + ninja
 # ---------------------------------------------------------------------------
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
@@ -40,21 +40,50 @@ ENV UV_LINK_MODE=copy
 
 WORKDIR /app
 
-# ---------------------------------------------------------------------------
-# Python dependencies (resolved from pyproject.toml via uv)
-# ---------------------------------------------------------------------------
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-COPY pyproject_turbodiffusion.toml ./pyproject.toml
-
 RUN uv venv /app/.venv \
-    && uv sync
+    && uv pip install ninja
 
 # ---------------------------------------------------------------------------
-# Copy source — shared framework + TurboDiffusion model only.
-# The TurboDiffusion/ submodule (with its own sub-submodules) must already be
-# checked out on the host (git submodule update --init --recursive).
+# torch / torchvision (CUDA 12.8) — large download; cached layer
+# ---------------------------------------------------------------------------
+RUN uv pip install torch torchvision \
+        --index-url https://download.pytorch.org/whl/cu128
+
+# ---------------------------------------------------------------------------
+# flash-attn — no pre-built wheels for torch 2.8; compiled from source.
+# Must come after torch so the build can import it.
+# ---------------------------------------------------------------------------
+RUN uv pip install flash-attn --no-build-isolation
+
+# ---------------------------------------------------------------------------
+# Pure-python runtime deps — cached layer.
+# Listed explicitly so the next (expensive CUDA-compile) layer is only
+# invalidated when the TurboDiffusion source itself changes.
+# Includes both TurboDiffusion deps and the VLGM app-layer deps.
+# ---------------------------------------------------------------------------
+RUN uv pip install \
+        einops numpy pillow loguru "imageio[ffmpeg]" pandas PyYAML \
+        omegaconf attrs fvcore ftfy regex transformers nvidia-ml-py \
+        "prompt-toolkit>=3.0" "rich>=13.0" triton \
+        fastapi uvicorn pydantic-settings httpx psutil
+
+# ---------------------------------------------------------------------------
+# Clone TurboDiffusion and compile its CUDA extensions (quant / norm / gemm).
+# turbo_diffusion_ops is installed to site-packages via `uv pip install .`;
+# the Python source stays on disk at /app/TurboDiffusion for sys.path imports.
+# ---------------------------------------------------------------------------
+ARG TD_BRANCH=main
+RUN git clone --depth 1 --branch "${TD_BRANCH}" \
+            https://github.com/thu-ml/TurboDiffusion.git /app/TurboDiffusion \
+    && cd /app/TurboDiffusion \
+    && git submodule update --init --recursive \
+    && uv pip install . --no-build-isolation
+
+# ---------------------------------------------------------------------------
+# Copy app source — changes here do NOT trigger a recompile of CUDA extensions
 # ---------------------------------------------------------------------------
 COPY src/__init__.py                  ./src/__init__.py
 COPY src/config.py                    ./src/config.py
@@ -66,23 +95,12 @@ COPY src/api/routes/turbodiffusion.py ./src/api/routes/turbodiffusion.py
 COPY src/models/__init__.py           ./src/models/__init__.py
 COPY src/models/base.py               ./src/models/base.py
 COPY src/models/turbodiffusion.py     ./src/models/turbodiffusion.py
-COPY src/models/TurboDiffusion/       ./src/models/TurboDiffusion/
-
-# ---------------------------------------------------------------------------
-# Compile third-party CUDA extensions (order matters: SpargeAttn first)
-# ---------------------------------------------------------------------------
-# SpargeAttn — required by sagesla attention path
-RUN uv pip install --no-build-isolation \
-        git+https://github.com/thu-ml/SpargeAttn.git
-
-# TurboDiffusion custom ops (quant / norm / gemm kernels + CUTLASS)
-RUN cd /app/src/models/TurboDiffusion \
-    && uv pip install -e . --no-build-isolation
 
 # ---------------------------------------------------------------------------
 # Runtime configuration
 # ---------------------------------------------------------------------------
 ENV PYTHONPATH=/app
+ENV TURBODIFFUSION_REPO_DIR=/app/TurboDiffusion
 ENV VLGM_HOST=0.0.0.0
 ENV VLGM_PORT=8000
 ENV VLGM_DEVICE=cuda

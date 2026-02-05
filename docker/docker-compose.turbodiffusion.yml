@@ -2,17 +2,22 @@
 # TurboDiffusion container — fast video generation
 #
 # Prerequisites (run once on the host):
-#   1. git submodule update --init --recursive
-#   2. bash docker/download_checkpoints.sh          # downloads ~6 GB
+#   bash docker/download_checkpoints.sh            # downloads ~6 GB
 #
 # Usage:
 #   docker compose -f docker/docker-compose.turbodiffusion.yml up -d
+#
+# To pin TurboDiffusion to a specific branch / tag, pass TD_BRANCH:
+#   docker compose -f docker/docker-compose.turbodiffusion.yml build \
+#       --build-arg TD_BRANCH=v1.2.3
 # =============================================================================
 services:
   turbodiffusion:
     build:
       context: ..                                   # repo root (where src/ lives)
       dockerfile: docker/Dockerfile.turbodiffusion
+      args:
+        TD_BRANCH: main
     image: vlgm-turbodiffusion:latest
     container_name: vlgm-turbodiffusion
 
