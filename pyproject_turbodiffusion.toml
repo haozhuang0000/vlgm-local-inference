@@ -25,7 +25,6 @@ dependencies = [
   "einops",
   "numpy",
   "pillow",
-  "opencv-python-headless==4.12.0.88",
   "loguru",
   "imageio[ffmpeg]",
   "pandas",
@@ -39,15 +38,6 @@ dependencies = [
   "nvidia-ml-py",
   "prompt-toolkit>=3.0",
   "rich>=13.0",
-  "scipy",
-  "opencv-python-headless<4.13",
-  "fastapi",
-  "uvicorn",
-  "httpx",
-  "aiofiles",
-  "pydantic>=2.0",
-  "pydantic-settings",
-  "huggingface-hub",
 ]
 
 [build-system]
@@ -67,11 +57,17 @@ turbodiffusion-serve = "turbodiffusion.serve.tui:main"
 Homepage = "https://github.com/thu-ml/TurboDiffusion"
 Repository = "https://github.com/thu-ml/TurboDiffusion"
 
+# Make uv install CUDA wheels (cu128) from PyTorch’s index, not CPU wheels from PyPI
 [[tool.uv.index]]
-name = "pytorch"
+name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
-priority = "explicit"
+explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch" }
-torchvision = { index = "pytorch" }
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+# torchaudio = { index = "pytorch-cu128" }  # only if you depend on it
+
+# Fix flash-attn building in isolation: it imports torch at build time.
+[tool.uv.extra-build-dependencies]
+flash-attn = [{ requirement = "torch", match-runtime = true }]
