@@ -10,7 +10,7 @@
 services:
   qalign:
     build:
-      context: .                          # docker/ (repo root is ../)
+      context: ..                         # repo root (where src/ lives)
       dockerfile: docker/Dockerfile.qalign
     image: vlgm-qalign:latest
     container_name: vlgm-qalign

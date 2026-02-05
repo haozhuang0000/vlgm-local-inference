@@ -11,7 +11,7 @@
 services:
   turbodiffusion:
     build:
-      context: .                                    # docker/ (repo root is ../)
+      context: ..                                   # repo root (where src/ lives)
       dockerfile: docker/Dockerfile.turbodiffusion
     image: vlgm-turbodiffusion:latest
     container_name: vlgm-turbodiffusion

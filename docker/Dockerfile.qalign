@@ -37,25 +37,25 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV UV_INDEX_URL=https://pypi.org/simple
 ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu118
 
-COPY ../pyproject_qalign.toml ./pyproject.toml
-COPY ../uv.lock ./uv.lock
+COPY pyproject_qalign.toml ./pyproject.toml
+COPY uv.lock ./uv.lock
 
 RUN uv sync --no-dev --frozen
 
 # ---------------------------------------------------------------------------
 # Copy source — shared framework + Q-Align model only
 # ---------------------------------------------------------------------------
-COPY ../src/__init__.py              ./src/__init__.py
-COPY ../src/config.py                ./src/config.py
-COPY ../src/schema/                  ./src/schema/
-COPY ../src/api/__init__.py          ./src/api/__init__.py
-COPY ../src/api/app.py               ./src/api/app.py
-COPY ../src/api/routes/__init__.py   ./src/api/routes/__init__.py
-COPY ../src/api/routes/qalign.py     ./src/api/routes/qalign.py
-COPY ../src/models/__init__.py       ./src/models/__init__.py
-COPY ../src/models/base.py           ./src/models/base.py
-COPY ../src/models/qalign.py         ./src/models/qalign.py
-COPY ../src/models/Q-Align/          ./src/models/Q-Align/
+COPY src/__init__.py              ./src/__init__.py
+COPY src/config.py                ./src/config.py
+COPY src/schema/                  ./src/schema/
+COPY src/api/__init__.py          ./src/api/__init__.py
+COPY src/api/app.py               ./src/api/app.py
+COPY src/api/routes/__init__.py   ./src/api/routes/__init__.py
+COPY src/api/routes/qalign.py     ./src/api/routes/qalign.py
+COPY src/models/__init__.py       ./src/models/__init__.py
+COPY src/models/base.py           ./src/models/base.py
+COPY src/models/qalign.py         ./src/models/qalign.py
+COPY src/models/Q-Align/          ./src/models/Q-Align/
 
 # ---------------------------------------------------------------------------
 # Runtime configuration
