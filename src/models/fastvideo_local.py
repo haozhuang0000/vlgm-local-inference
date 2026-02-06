@@ -8,9 +8,9 @@ import argparse
 
 import torch
 
-from src.config import get_settings
-from src.models.base import VlgmBase
-from src.schema import FastVideoInput, FastVideoOutput, ModelStatus
+from ..config import get_settings
+from .base import VlgmBase
+from ..schema import FastVideoInput, FastVideoOutput, ModelStatus
 
 logger = logging.getLogger(__name__)
 

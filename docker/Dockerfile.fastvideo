@@ -55,7 +55,7 @@ COPY src/api/routes/__init__.py   ./src/api/routes/__init__.py
 COPY src/api/routes/fastvideo.py  ./src/api/routes/fastvideo.py
 COPY src/models/__init__.py       ./src/models/__init__.py
 COPY src/models/base.py           ./src/models/base.py
-COPY src/models/fastvideo.py      ./src/models/fastvideo.py
+COPY src/models/fastvideo_local.py ./src/models/fastvideo_local.py
 
 # ---------------------------------------------------------------------------
 # Runtime configuration

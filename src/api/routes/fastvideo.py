@@ -12,7 +12,7 @@ from ...schema import (
     FastVideoRequest,
     FastVideoResponse,
 )
-from ...models.fastvideo import FastVideoModel
+from ...models.fastvideo_local import FastVideoModel
 
 logger = logging.getLogger(__name__)
 

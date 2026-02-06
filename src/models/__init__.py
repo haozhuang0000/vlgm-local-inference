@@ -37,7 +37,7 @@ except ImportError:
     pass
 
 try:
-    from .fastvideo import FastVideoModel
+    from .fastvideo_local import FastVideoModel
     __all__.append("FastVideoModel")
 except ImportError:
     pass

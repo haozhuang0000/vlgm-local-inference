@@ -43,7 +43,7 @@ except ImportError:
 
 try:
     from .routes.fastvideo import router as fastvideo_router, set_model as set_fastvideo_model
-    from ..models.fastvideo import FastVideoModel
+    from ..models.fastvideo_local import FastVideoModel
     _fastvideo_available = True
 except ImportError:
     pass
