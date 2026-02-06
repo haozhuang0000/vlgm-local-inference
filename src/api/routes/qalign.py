@@ -1,7 +1,9 @@
 """Q-Align API routes for video quality assessment."""
 
+import asyncio
 import base64
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Annotated
 
 import httpx
@@ -16,6 +18,10 @@ from ...schema import (
 from ...models.qalign import QAlignModel
 
 logger = logging.getLogger(__name__)
+
+# Thread pool for running blocking model operations
+# Using max_workers=1 since GPU inference is inherently serial
+_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="qalign_worker")
 
 router = APIRouter(prefix="/qalign", tags=["Q-Align"])
 
@@ -107,11 +113,14 @@ async def evaluate_video(
     model: Annotated[QAlignModel, Depends(get_model)],
 ) -> QAlignResponse:
     """Evaluate video quality."""
-    # Auto-load model if not loaded
+    logger.info("Received evaluate_video request")
+    loop = asyncio.get_event_loop()
+
+    # Auto-load model if not loaded (run in thread pool to avoid blocking event loop)
     if not model.is_loaded:
         try:
             logger.info("Auto-loading Q-Align model...")
-            model.load()
+            await loop.run_in_executor(_executor, model.load)
         except Exception as e:
             logger.error(f"Failed to load Q-Align model: {e}")
             raise HTTPException(
@@ -119,13 +128,16 @@ async def evaluate_video(
                 detail=f"Failed to load model: {e}",
             )
 
-    # Load video from request
+    # Load video from request (async HTTP fetch if URL)
     video_data = await _load_video_from_request(request)
 
-    # Create input and run prediction
+    # Create input and run prediction in thread pool to avoid blocking event loop
     input_data = QAlignInput(video=video_data, task=request.task)
 
-    result = model.predict(input_data)
+    logger.info("Running prediction in thread pool...")
+    result = await loop.run_in_executor(_executor, model.predict, input_data)
+    logger.info("Prediction completed")
+
     return QAlignResponse(
         score=result.score,
         task=result.task,

@@ -193,6 +193,8 @@ def main():
         port=settings.port,
         reload=settings.debug,
         log_level="info",
+        timeout_keep_alive=300,  # Keep connections alive for long-running inference
+        limit_concurrency=10,    # Limit concurrent connections to prevent overload
     )
 
 
