@@ -76,6 +76,7 @@ class FastVideoModel(VlgmBase[FastVideoInput, FastVideoOutput]):
             self._model_id,
             torch_dtype=dtype,
             device=device,
+            num_gpus=1
         )
         self._model = self._generator
 

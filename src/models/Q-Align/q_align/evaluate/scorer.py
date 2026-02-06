@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from PIL import Image
 
 import torch.nn as nn
@@ -10,17 +11,27 @@ from q_align.model.builder import load_pretrained_model
 from q_align.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN
 from q_align.mm_utils import process_images, tokenizer_image_token, get_model_name_from_path, KeywordsStoppingCriteria
 
-def load_video(video_file):
+
+@contextmanager
+def video_reader_context(video_file):
+    """Context manager for VideoReader to ensure proper resource cleanup."""
     from decord import VideoReader
     vr = VideoReader(video_file)
+    try:
+        yield vr
+    finally:
+        del vr
 
-    # Get video frame rate
-    fps = vr.get_avg_fps()
 
-    # Calculate frame indices for 1fps
-    frame_indices = [int(fps * i) for i in range(int(len(vr) / fps))]
-    frames = vr.get_batch(frame_indices).asnumpy()
-    return [Image.fromarray(frames[i]) for i in range(int(len(vr) / fps))]
+def load_video(video_file):
+    with video_reader_context(video_file) as vr:
+        # Get video frame rate
+        fps = vr.get_avg_fps()
+
+        # Calculate frame indices for 1fps
+        frame_indices = [int(fps * i) for i in range(int(len(vr) / fps))]
+        frames = vr.get_batch(frame_indices).asnumpy()
+        return [Image.fromarray(frames[i]) for i in range(int(len(vr) / fps))]
 
 
 class QAlignScorer(nn.Module):

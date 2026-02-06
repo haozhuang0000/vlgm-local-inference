@@ -71,6 +71,8 @@ class QAlignModel(VlgmBase[QAlignInput, QAlignOutput]):
 
     @torch.inference_mode()
     def predict(self, input_data: QAlignInput) -> QAlignOutput:
+        import gc
+
         self._ensure_loaded()
         if not self.validate_input(input_data):
             raise ValueError(f"Invalid input: {input_data}")
@@ -90,7 +92,11 @@ class QAlignModel(VlgmBase[QAlignInput, QAlignOutput]):
             frames = load_video(video_path)
             # Scorer returns raw [0, 1]; map to API's [1, 5] scale
             raw_score = self._scorer([frames]).item()
+            # Clear frames reference to allow VideoReader cleanup
+            del frames
         finally:
+            # Force GC to ensure VideoReader is destroyed before file deletion (critical on Windows)
+            gc.collect()
             if isinstance(input_data.video, bytes):
                 os.unlink(video_path)
 
