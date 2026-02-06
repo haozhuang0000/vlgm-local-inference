@@ -1,0 +1,106 @@
+# =============================================================================
+# TurboDiffusion Inference Service (NVIDIA CUDA)
+#
+# Build args:
+#   TD_BRANCH             - TurboDiffusion git branch / tag (default: main)
+#   FLASH_ATTN_WHEEL_URL  - Prebuilt flash-attn wheel URL (optional)
+#
+# Notes:
+# - Uses CUDA 12.6 to match the official flash-attn wheel matrix.
+# - Uses torch 2.4.x to match the provided flash-attn wheel.
+# =============================================================================
+FROM nvidia/cuda:12.6.2-devel-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# ---------------------------------------------------------------------------
+# System deps
+# ---------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        ffmpeg \
+        git \
+        libgl1-mesa-glx \
+        libglib2.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# Python 3.12 (copied from official python image to avoid PPA)
+# ---------------------------------------------------------------------------
+COPY --from=python:3.12-slim /usr/local /usr/local
+ENV PATH="/usr/local/bin:${PATH}"
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# ---------------------------------------------------------------------------
+# PyTorch (torch 2.4.x to match flash-attn wheel)
+# ---------------------------------------------------------------------------
+ARG TORCH_VERSION=2.4.1
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu121
+RUN pip install \
+        "torch==${TORCH_VERSION}" \
+        "torchvision==0.19.1" \
+        "torchaudio==2.4.1" \
+        --index-url "${TORCH_INDEX_URL}"
+
+# ---------------------------------------------------------------------------
+# flash-attn (prebuilt wheel)
+# Pass FLASH_ATTN_WHEEL_URL at build time. If omitted, this step is skipped.
+# ---------------------------------------------------------------------------
+ARG FLASH_ATTN_WHEEL_URL=""
+RUN if [ -n "${FLASH_ATTN_WHEEL_URL}" ]; then \
+        pip install "${FLASH_ATTN_WHEEL_URL}"; \
+    else \
+        echo "FLASH_ATTN_WHEEL_URL not set; skipping flash-attn install."; \
+    fi
+
+# ---------------------------------------------------------------------------
+# TurboDiffusion: clone and build custom ops
+# ---------------------------------------------------------------------------
+ARG TD_BRANCH=main
+RUN git clone --depth 1 --branch "${TD_BRANCH}" \
+            https://github.com/thu-ml/TurboDiffusion.git /app/TurboDiffusion \
+    && cd /app/TurboDiffusion \
+    && git submodule update --init --recursive \
+    && pip install . --no-build-isolation
+
+# ---------------------------------------------------------------------------
+# Copy app source (changes here do NOT trigger a recompile of custom ops)
+# ---------------------------------------------------------------------------
+COPY src/__init__.py                  ./src/__init__.py
+COPY src/config.py                    ./src/config.py
+COPY src/schema/                      ./src/schema/
+COPY src/api/__init__.py              ./src/api/__init__.py
+COPY src/api/app.py                   ./src/api/app.py
+COPY src/api/routes/__init__.py       ./src/api/routes/__init__.py
+COPY src/api/routes/turbodiffusion.py ./src/api/routes/turbodiffusion.py
+COPY src/models/__init__.py           ./src/models/__init__.py
+COPY src/models/base.py               ./src/models/base.py
+COPY src/models/turbodiffusion.py     ./src/models/turbodiffusion.py
+
+# ---------------------------------------------------------------------------
+# Runtime configuration
+# ---------------------------------------------------------------------------
+ENV PYTHONPATH=/app
+ENV TURBODIFFUSION_REPO_DIR=/app/TurboDiffusion
+ENV VLGM_HOST=0.0.0.0
+ENV VLGM_PORT=8000
+ENV VLGM_DEVICE=cuda
+ENV VLGM_QALIGN_ENABLED=false
+ENV VLGM_TURBODIFFUSION_ENABLED=true
+
+RUN mkdir -p /app/checkpoints /app/outputs
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+EXPOSE 8000
+
+CMD ["python", "-c", "from src.api.app import main; main()"]

@@ -28,7 +28,7 @@ services:
       - VLGM_FASTVIDEO_MODEL_ID=FastVideo/FastWan2.1-T2V-1.3B-Diffusers
       - HF_HOME=/app/model_cache
       - TRANSFORMERS_CACHE=/app/model_cache
-      - FASTVIDEO_ATTENTION_BACKEND=flash-attn2
+      - FASTVIDEO_ATTENTION_BACKEND=VIDEO_SPARSE_ATTN
       - CUDA_VISIBLE_DEVICES=0
 
     volumes:

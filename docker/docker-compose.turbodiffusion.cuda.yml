@@ -1,0 +1,70 @@
+# =============================================================================
+# TurboDiffusion container (NVIDIA CUDA)
+#
+# Prerequisites (run once on the host):
+#   bash docker/download_checkpoints.sh            # downloads ~6 GB
+#
+# Usage:
+#   docker compose -f docker/docker-compose.turbodiffusion.cuda.yml up -d
+#
+# To pin TurboDiffusion to a specific branch / tag, pass TD_BRANCH:
+#   docker compose -f docker/docker-compose.turbodiffusion.cuda.yml build \
+#       --build-arg TD_BRANCH=v1.2.3
+#
+# To install flash-attn from a wheel, pass FLASH_ATTN_WHEEL_URL:
+#   docker compose -f docker/docker-compose.turbodiffusion.cuda.yml build \
+#       --build-arg FLASH_ATTN_WHEEL_URL=https://.../flash_attn-...-cp312-cp312-linux_x86_64.whl
+# =============================================================================
+services:
+  turbodiffusion:
+    build:
+      context: ..                                   # repo root (where src/ lives)
+      dockerfile: docker/Dockerfile.turbodiffusion.cuda
+      args:
+        TD_BRANCH: main
+        TORCH_VERSION: "${TORCH_VERSION:-2.4.1}"
+        TORCH_INDEX_URL: "${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu121}"
+        FLASH_ATTN_WHEEL_URL: "${FLASH_ATTN_WHEEL_URL:-https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.4cxx11abiFALSE-cp312-cp312-linux_x86_64.whl}"
+    image: vlgm-turbodiffusion:cuda
+    container_name: vlgm-turbodiffusion-cuda
+
+    # Host port 8001 -> container port 8000 so it can coexist with Q-Align on 8000
+    ports:
+      - "8001:8000"
+
+    environment:
+      - VLGM_HOST=0.0.0.0
+      - VLGM_PORT=8000
+      - VLGM_DEVICE=cuda
+      - VLGM_QALIGN_ENABLED=false
+      - VLGM_TURBODIFFUSION_ENABLED=true
+      - VLGM_OUTPUT_DIR=/app/outputs
+      # Checkpoint paths (must match files produced by download_checkpoints.sh)
+      - VLGM_TURBODIFFUSION_MODEL=Wan2.1-1.3B
+      - VLGM_TURBODIFFUSION_DIT_PATH=/app/checkpoints/TurboWan2.1-T2V-1.3B-480P-quant.pth
+      - VLGM_TURBODIFFUSION_VAE_PATH=/app/checkpoints/Wan2.1_VAE.pth
+      - VLGM_TURBODIFFUSION_TEXT_ENCODER_PATH=/app/checkpoints/models_t5_umt5-xxl-enc-bf16.pth
+      - CUDA_VISIBLE_DEVICES=0
+
+    volumes:
+      # Model checkpoints (read-only; populated by download_checkpoints.sh)
+      - ./checkpoints:/app/checkpoints:ro
+      # Generated videos
+      - ./outputs:/app/outputs
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s

@@ -4,12 +4,13 @@ import logging
 import os
 import uuid
 from pathlib import Path
+import argparse
 
 import torch
 
-from ..config import get_settings
-from .base import VlgmBase
-from ..schema import FastVideoInput, FastVideoOutput, ModelStatus
+from src.config import get_settings
+from src.models.base import VlgmBase
+from src.schema import FastVideoInput, FastVideoOutput, ModelStatus
 
 logger = logging.getLogger(__name__)
 
@@ -63,30 +64,30 @@ class FastVideoModel(VlgmBase[FastVideoInput, FastVideoOutput]):
         dtype = self._get_dtype()
         logger.info(f"Loading FastVideo model '{self._model_id}' on {device} with {dtype}")
 
-        try:
+        # try:
             # Import fastvideo
-            from fastvideo import VideoGenerator
+        from fastvideo import VideoGenerator
 
-            # Set attention backend for optimal performance
-            # os.environ["FASTVIDEO_ATTENTION_BACKEND"] = "flash-attn2"
+        # Set attention backend for optimal performance
+        os.environ["FASTVIDEO_ATTENTION_BACKEND"] = "VIDEO_SPARSE_ATTN"
 
-            # Load the generator from pretrained model
-            self._generator = VideoGenerator.from_pretrained(
-                self._model_id,
-                torch_dtype=dtype,
-                device=device,
-            )
-            self._model = self._generator
+        # Load the generator from pretrained model
+        self._generator = VideoGenerator.from_pretrained(
+            self._model_id,
+            torch_dtype=dtype,
+            device=device,
+        )
+        self._model = self._generator
 
-            self._info.status = ModelStatus.READY
-            self._info.device = device
-            self._info.dtype = str(dtype)
-            logger.info(f"FastVideo model loaded successfully on {device}")
+        self._info.status = ModelStatus.READY
+        self._info.device = device
+        self._info.dtype = str(dtype)
+        logger.info(f"FastVideo model loaded successfully on {device}")
 
-        except Exception as e:
-            self._info.status = ModelStatus.ERROR
-            logger.error(f"Failed to load FastVideo model: {e}")
-            raise RuntimeError(f"Failed to load FastVideo model: {e}")
+        # except Exception as e:
+        #     self._info.status = ModelStatus.ERROR
+        #     logger.error(f"Failed to load FastVideo model: {e}")
+        #     raise RuntimeError(f"Failed to load FastVideo model: {e}")
 
     def unload(self) -> None:
         self._generator = None
@@ -161,3 +162,47 @@ class FastVideoModel(VlgmBase[FastVideoInput, FastVideoOutput]):
             video_path=str(output_path),
             metadata=metadata,
         )
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Local FastVideo test runner")
+    parser.add_argument("--prompt", default="generate a cat", help="Text prompt for generation")
+    parser.add_argument("--num-frames", type=int, default=49, help="Number of frames")
+    parser.add_argument("--height", type=int, default=480, help="Video height")
+    parser.add_argument("--width", type=int, default=832, help="Video width")
+    parser.add_argument("--num-inference-steps", type=int, default=8, help="Diffusion steps")
+    parser.add_argument("--guidance-scale", type=float, default=1.0, help="CFG scale")
+    parser.add_argument("--seed", type=int, default=None, help="Random seed")
+    parser.add_argument("--model-id", default=None, help="Override model id")
+    parser.add_argument("--device", default=None, help="cuda | cpu | auto")
+    parser.add_argument("--dtype", default=None, help="float16 | bfloat16 | float32")
+    parser.add_argument("--output-dir", default=None, help="Output directory")
+    return parser
+
+
+def _run_local() -> int:
+    args = _build_arg_parser().parse_args()
+    model = FastVideoModel(
+        model_id=args.model_id,
+        device=args.device,
+        dtype=args.dtype,
+        output_dir=args.output_dir,
+    )
+    model.load()
+    input_data = FastVideoInput(
+        prompt=args.prompt,
+        num_frames=args.num_frames,
+        height=args.height,
+        width=args.width,
+        num_inference_steps=args.num_inference_steps,
+        guidance_scale=args.guidance_scale,
+        seed=args.seed,
+    )
+    result = model.predict(input_data)
+    print(f"Video saved: {result.video_path}")
+    print(f"Metadata: {result.metadata}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_run_local())
