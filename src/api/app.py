@@ -58,23 +58,26 @@ async def lifespan(app: FastAPI):
     output_dir = Path(settings.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Initialize models (lazy loading - loaded on first request)
-    logger.info("Initializing models...")
+    # Initialize and load models at startup
+    logger.info("Loading models at startup...")
 
     if settings.qalign_enabled:
         if _qalign_available:
+            logger.info("Initializing Q-Align model...")
             qalign_model = QAlignModel(
                 model_id=settings.qalign_model_id,
                 device=settings.device,
                 dtype=settings.torch_dtype,
             )
+            qalign_model.load()
             set_qalign_model(qalign_model)
-            logger.info("Q-Align model initialized (will load on first request)")
+            logger.info("Q-Align model loaded successfully")
         else:
             logger.warning("Q-Align enabled but dependencies are not installed — skipping")
 
     if settings.turbodiffusion_enabled:
         if _turbodiffusion_available:
+            logger.info("Initializing TurboDiffusion model...")
             turbodiffusion_model = TurboDiffusionModel(
                 model_name=settings.turbodiffusion_model,
                 dit_path=settings.turbodiffusion_dit_path,
@@ -89,21 +92,24 @@ async def lifespan(app: FastAPI):
                 low_noise_model_path=settings.turbodiffusion_low_noise_model_path,
                 boundary=settings.turbodiffusion_boundary,
             )
+            turbodiffusion_model.load()
             set_turbodiffusion_model(turbodiffusion_model)
-            logger.info("TurboDiffusion model initialized (will load on first request)")
+            logger.info("TurboDiffusion model loaded successfully")
         else:
             logger.warning("TurboDiffusion enabled but dependencies are not installed — skipping")
 
     if settings.fastvideo_enabled:
         if _fastvideo_available:
+            logger.info("Initializing FastVideo model...")
             fastvideo_model = FastVideoModel(
                 model_id=settings.fastvideo_model_id,
                 device=settings.device,
                 dtype=settings.torch_dtype,
                 output_dir=settings.output_dir,
             )
+            fastvideo_model.load()
             set_fastvideo_model(fastvideo_model)
-            logger.info("FastVideo model initialized (will load on first request)")
+            logger.info("FastVideo model loaded successfully")
         else:
             logger.warning("FastVideo enabled but dependencies are not installed — skipping")
 
@@ -125,7 +131,7 @@ def create_app() -> FastAPI:
 ## Visual-Language Generative Models Local Inference Service
 
 This service provides local inference for visual-language generative models.
-Models are loaded automatically on first request.
+Models are loaded at startup and ready for immediate inference.
         """,
         version=__version__,
         docs_url="/docs",

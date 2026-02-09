@@ -116,18 +116,6 @@ async def evaluate_video(
     logger.info("Received evaluate_video request")
     loop = asyncio.get_event_loop()
 
-    # Auto-load model if not loaded (run in thread pool to avoid blocking event loop)
-    if not model.is_loaded:
-        try:
-            logger.info("Auto-loading Q-Align model...")
-            await loop.run_in_executor(_executor, model.load)
-        except Exception as e:
-            logger.error(f"Failed to load Q-Align model: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Failed to load model: {e}",
-            )
-
     # Load video from request (async HTTP fetch if URL)
     video_data = await _load_video_from_request(request)
 

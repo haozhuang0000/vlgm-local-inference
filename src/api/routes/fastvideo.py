@@ -70,18 +70,6 @@ async def generate_video(
     model: Annotated[FastVideoModel, Depends(get_model)],
 ) -> FastVideoResponse:
     """Generate video from text prompt."""
-    # Auto-load model if not loaded
-    if not model.is_loaded:
-        try:
-            logger.info("Auto-loading FastVideo model...")
-            model.load()
-        except Exception as e:
-            logger.error(f"Failed to load FastVideo model: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Failed to load model: {e}",
-            )
-
     # Create input and run prediction
     input_data = FastVideoInput(
         prompt=request.prompt,

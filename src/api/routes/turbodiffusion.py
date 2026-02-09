@@ -102,18 +102,6 @@ async def generate_video(
     model: Annotated[TurboDiffusionModel, Depends(get_model)],
 ) -> TurboDiffusionResponse:
     """Generate a video from text prompt (and optionally an image)."""
-    # Auto-load model on first request
-    if not model.is_loaded:
-        try:
-            logger.info("Auto-loading TurboDiffusion model...")
-            model.load()
-        except Exception as e:
-            logger.error(f"Failed to load TurboDiffusion model: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Failed to load model: {e}",
-            )
-
     # Resolve image for I2V
     image_data = await _load_image_from_request(request)
     task = "image2video" if image_data else "text2video"
