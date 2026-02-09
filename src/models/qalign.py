@@ -123,10 +123,13 @@ class QAlignModel(VlgmBase[QAlignInput, QAlignOutput]):
             logger.debug(f"Video frames loaded in {time.time() - load_start:.3f}s, frames shape: {frames.shape if hasattr(frames, 'shape') else 'N/A'}")
 
             # Scorer returns raw [0, 1]; map to API's [1, 5] scale
+            # Weight tensor: [1, 0.75, 0.5, 0.25, 0] for [excellent, good, fair, poor, bad]
+            # Mapping: 0.0→1 (bad), 0.25→2 (poor), 0.5→3 (fair), 0.75→4 (good), 1.0→5 (excellent)
             logger.debug("Running scorer on frames")
             score_start = time.time()
             raw_score = self._scorer([frames]).item()
-            logger.debug(f"Scoring completed in {time.time() - score_start:.3f}s, raw_score: {raw_score}")
+            score = raw_score * 4 + 1  # Convert [0, 1] to [1, 5]
+            logger.debug(f"Scoring completed in {time.time() - score_start:.3f}s, raw_score: {raw_score}, mapped_score: {score}")
 
             # Clear frames reference to allow VideoReader cleanup
             del frames
@@ -154,6 +157,6 @@ class QAlignModel(VlgmBase[QAlignInput, QAlignOutput]):
                         break
 
         total_time = time.time() - start_time
-        logger.info(f"Prediction completed in {total_time:.3f}s, score: {raw_score}")
+        logger.info(f"Prediction completed in {total_time:.3f}s, score: {score}")
 
-        return QAlignOutput(score=raw_score, task=input_data.task)
+        return QAlignOutput(score=score, task=input_data.task)
